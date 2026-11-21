@@ -1,0 +1,12 @@
+# Fictional crontab for a small online shop's server, used to try cron-explain.
+# Server clock: America/Toronto. Commands are placeholders.
+CRON_TZ=America/Toronto
+*/5 * * * *        /opt/shop/bin/sync-stock
+30 2 * * *         /opt/shop/bin/nightly-backup
+15 1 * * *         /opt/shop/bin/rotate-logs
+0 6 1 * 1          /opt/shop/bin/monthly-report
+0 */7 * * *        /opt/shop/bin/refresh-feeds
+0 9 31 * *         /opt/shop/bin/month-end-invoice
+45 23 * * mon-fri  /opt/shop/bin/close-orders
+0 4 * * 0          /opt/shop/bin/weekly-vacuum
+@reboot            /opt/shop/bin/start-workers
