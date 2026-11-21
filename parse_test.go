@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseValues(t *testing.T) {
@@ -66,7 +67,7 @@ func TestParseErrors(t *testing.T) {
 		{"*/61 * * * *", "minute", "larger than the field"},
 		{"1,,2 * * * *", "minute", "empty item"},
 		{"0 0 1- * *", "day of month", "missing value"},
-		{"@reboot", "", "unknown macro"},
+		{"@every 5m", "", "unknown macro"},
 	}
 	for _, tt := range tests {
 		_, err := Parse(tt.expr)
@@ -77,6 +78,20 @@ func TestParseErrors(t *testing.T) {
 		if pe.Field != tt.field || !strings.Contains(pe.Msg, tt.msg) {
 			t.Errorf("Parse(%q) = field %q msg %q, want field %q msg containing %q", tt.expr, pe.Field, pe.Msg, tt.field, tt.msg)
 		}
+	}
+}
+
+func TestReboot(t *testing.T) {
+	s, err := Parse("@REBOOT")
+	if err != nil || !s.Reboot() {
+		t.Fatalf("Parse(@REBOOT) = %v, %v", s, err)
+	}
+	if got := s.Explain(); got != "Once, when the cron daemon starts (usually at boot)." {
+		t.Errorf("Explain = %q", got)
+	}
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	if len(s.Next(from, time.UTC, 3)) != 0 || len(s.Check(from, time.UTC)) != 0 {
+		t.Error("@reboot should have no runs and no warnings")
 	}
 }
 

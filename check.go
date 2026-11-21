@@ -17,6 +17,9 @@ type Warning struct {
 // missing in short months, and run times that daylight saving changes skip
 // or repeat in loc during the year after from.
 func (s *Schedule) Check(from time.Time, loc *time.Location) []Warning {
+	if s.reboot {
+		return nil
+	}
 	if s.neverRuns(from) {
 		return []Warning{{"never-runs", "This schedule never runs: no date matches every field (for example February 30, or day 31 in a month that has 30 days)."}}
 	}

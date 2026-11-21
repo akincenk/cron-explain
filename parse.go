@@ -60,6 +60,7 @@ func (p part) single() bool { return !p.star && p.lo == p.hi }
 // Schedule is a parsed cron expression.
 type Schedule struct {
 	expr       string
+	reboot     bool
 	hasSeconds bool
 	parts      [6][]part
 	bits       [6]uint64
@@ -91,16 +92,20 @@ var macros = map[string]string{
 
 // Parse reads a standard five-field expression (minute hour day-of-month
 // month day-of-week), a six-field expression with seconds in front, or one
-// of the macros @yearly, @annually, @monthly, @weekly, @daily, @midnight and
-// @hourly. Month and weekday names (JAN, MON) are accepted in any case, and
+// of the macros @yearly, @annually, @monthly, @weekly, @daily, @midnight,
+// @hourly and @reboot. Month and weekday names (JAN, MON) are accepted in any case, and
 // both 0 and 7 mean Sunday.
 func Parse(expr string) (*Schedule, error) {
 	s := &Schedule{expr: strings.TrimSpace(expr)}
 	text := s.expr
+	if strings.EqualFold(text, "@reboot") {
+		s.reboot = true
+		return s, nil
+	}
 	if strings.HasPrefix(text, "@") {
 		m, ok := macros[strings.ToLower(text)]
 		if !ok {
-			return nil, &ParseError{Expr: expr, Msg: fmt.Sprintf("unknown macro %s (known: @yearly, @annually, @monthly, @weekly, @daily, @midnight, @hourly)", text)}
+			return nil, &ParseError{Expr: expr, Msg: fmt.Sprintf("unknown macro %s (known: @yearly, @annually, @monthly, @weekly, @daily, @midnight, @hourly, @reboot)", text)}
 		}
 		text = m
 	}
@@ -216,6 +221,10 @@ func parseValue(text string, spec fieldSpec) (int, error) {
 
 // String returns the expression as it was given (trimmed).
 func (s *Schedule) String() string { return s.expr }
+
+// Reboot reports whether the expression is @reboot, which runs once when
+// the cron daemon starts and has no run times.
+func (s *Schedule) Reboot() bool { return s.reboot }
 
 // HasSeconds reports whether the expression had a seconds field.
 func (s *Schedule) HasSeconds() bool { return s.hasSeconds }

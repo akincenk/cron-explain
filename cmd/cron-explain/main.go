@@ -105,7 +105,7 @@ func run(args []string, stdout, stderr io.Writer, now time.Time) int {
 		}
 		return 0
 	}
-	printText(stdout, r, *n)
+	printText(stdout, r, s, *n)
 	return 0
 }
 
@@ -166,12 +166,14 @@ func toRun(o cronexplain.Occurrence) runEntry {
 	return r
 }
 
-func printText(w io.Writer, r report, n int) {
+func printText(w io.Writer, r report, s *cronexplain.Schedule, n int) {
 	fmt.Fprintln(w, r.Expression)
 	fmt.Fprintln(w, r.Description)
 	if n > 0 {
 		fmt.Fprintf(w, "\nNext runs (%s):\n", r.TimeZone)
-		if len(r.Runs) == 0 {
+		if s.Reboot() {
+			fmt.Fprintln(w, "  none: @reboot is not tied to a time")
+		} else if len(r.Runs) == 0 {
 			fmt.Fprintln(w, "  none in the next 30 years")
 		}
 		for _, x := range r.Runs {

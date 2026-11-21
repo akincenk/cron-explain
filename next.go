@@ -47,11 +47,11 @@ const searchYears = 30
 
 // Next returns the next n runs strictly after from, in loc. Wall-clock times
 // skipped by a daylight saving change are included as Skipped entries and do
-// not count toward n. It returns fewer than n runs when the expression has no
+// not count toward n. @reboot has no runs. It returns fewer than n runs when the expression has no
 // more matches within 30 years, for example "0 0 30 2 *".
 func (s *Schedule) Next(from time.Time, loc *time.Location, n int) []Occurrence {
 	var out []Occurrence
-	if n <= 0 {
+	if n <= 0 || s.reboot {
 		return out
 	}
 	from = from.In(loc)

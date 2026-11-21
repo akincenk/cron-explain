@@ -90,6 +90,13 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestReboot(t *testing.T) {
+	code, out, _ := runCLI("-tz", "UTC", "@reboot")
+	if code != 0 || !strings.Contains(out, "none: @reboot is not tied to a time") {
+		t.Errorf("exit %d, output:\n%s", code, out)
+	}
+}
+
 func TestNeverRuns(t *testing.T) {
 	code, out, _ := runCLI("-tz", "UTC", "0 0 30 2 *")
 	if code != 0 || !strings.Contains(out, "none in the next 30 years") || !strings.Contains(out, "[never-runs]") {

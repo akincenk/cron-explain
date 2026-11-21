@@ -13,6 +13,9 @@ const maxListedTimes = 12
 // Explain describes the schedule in one English sentence, for example
 // "At 09:00, Monday through Friday." for "0 9 * * 1-5".
 func (s *Schedule) Explain() string {
+	if s.reboot {
+		return "Once, when the cron daemon starts (usually at boot)."
+	}
 	day, month := s.dayPhrase(), s.monthPhrase()
 	if d, m := s.values(DayOfMonth), s.values(Month); len(d) == 1 && len(m) == 1 && s.isAll(DayOfWeek) {
 		day, month = fmt.Sprintf("on %s %d", monthName(m[0]), d[0]), "" // "on January 1"
