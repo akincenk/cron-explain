@@ -84,6 +84,23 @@ go build ./cmd/cron-explain
 
 Quote the expression so your shell does not expand `*`.
 
+### Crontab files
+
+`-file` checks every job line of a crontab and prints one report per line, with its line number, followed by a count of lines with warnings and errors. `-file -` reads standard input, so `crontab -l | cron-explain -n 1 -file -` checks your own crontab.
+
+```console
+cron-explain -n 1 -file examples/shop-server.crontab
+cron-explain -n 1 -system -file /etc/cron.d/backup
+```
+
+- Blank lines and lines starting with `#` are skipped. A `#` later in a job line is part of the command, as in cron.
+- `NAME=value` lines are variables. `CRON_TZ` sets the time zone for the job lines after it and overrides `-tz`; `CRON_TZ=` goes back to `-tz`. `TZ` is only passed to commands and does not change the schedule, which is how cronie handles it.
+- `-system` reads the format of `/etc/crontab` and `/etc/cron.d`, where a user column follows the schedule.
+- Crontab files have five time fields. A line with a seconds field shifts the columns, so a time-like value where the command (or user) should be is reported as an error, as is a user column that looks like a command.
+- `-from` is read in the `-tz` zone even when the file sets `CRON_TZ`; use RFC 3339 with an offset to be exact.
+
+The exit code is 1 when any line has an error; the other lines are still reported. With `-json` the output is a list of objects with `line`, `user`, `command`, the fields of a single report, and `error` for lines that could not be read.
+
 ### Flags
 
 | Flag | Default | Meaning |
@@ -92,8 +109,10 @@ Quote the expression so your shell does not expand `*`.
 | `-n` | 5 | how many next runs to list (0 to 1000) |
 | `-from` | now | list runs after this time: RFC 3339 or `YYYY-MM-DD HH:MM` in the `-tz` zone |
 | `-json` | off | print JSON (`expression`, `description`, `time_zone`, `runs`, `warnings`) |
+| `-file` | none | check every job line of a crontab file, `-` for standard input |
+| `-system` | off | with `-file`: lines have a user column (`/etc/crontab`, `/etc/cron.d`) |
 
-Exit codes: 0 success, 1 invalid expression, 2 invalid flags.
+Exit codes: 0 success, 1 invalid expression (or any invalid line with `-file`), 2 invalid flags or unreadable file.
 
 ## Library
 
@@ -111,11 +130,26 @@ for _, o := range s.Next(time.Now(), loc, 5) {
 for _, w := range s.Check(time.Now(), loc) {
 	fmt.Println(w.Code, w.Message)
 }
+
+f, _ := os.Open("crontab")
+entries, err := cronexplain.ParseCrontab(f, false) // true for /etc/crontab format
+for _, e := range entries {
+	if e.Err != nil {
+		fmt.Println(e.Err) // line number and problem
+		continue
+	}
+	fmt.Println(e.Line, e.Schedule.Explain(), e.TZ) // TZ is CRON_TZ in effect, or ""
+}
 ```
 
 ## Example
 
-[examples/shop-server.crontab](examples/shop-server.crontab) is a made-up crontab with several of the mistakes above. It was used to try the tool by hand.
+[examples/shop-server.crontab](examples/shop-server.crontab) is a made-up crontab with several of the mistakes above, and [examples/shop-cron.d](examples/shop-cron.d) a made-up `/etc/cron.d` file with a missing user column, a seconds field and a misspelled `CRON_TZ`. Both were used to try the tool by hand:
+
+```console
+cron-explain -n 1 -file examples/shop-server.crontab
+cron-explain -n 1 -system -file examples/shop-cron.d
+```
 
 ## Development
 

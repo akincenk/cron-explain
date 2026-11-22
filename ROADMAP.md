@@ -4,7 +4,7 @@ Planned work, about 30 hours in total. Each item has a GitHub issue with the `ro
 
 ## Input
 
-1. **Read a crontab file** (3 h). `cron-explain -file crontab` checks every line: skips comments and blank lines, understands `VAR=value` lines and applies `CRON_TZ`/`TZ`, supports the system crontab format with a user column (`/etc/crontab`, `/etc/cron.d/*`), and prints a report per line with its line number. Today each expression has to be cut out by hand.
+1. **Read a crontab file** (3 h). `cron-explain -file crontab` checks every line: skips comments and blank lines, understands `VAR=value` lines and applies `CRON_TZ`/`TZ`, supports the system crontab format with a user column (`/etc/crontab`, `/etc/cron.d/*`), and prints a report per line with its line number. Today each expression has to be cut out by hand. **Done:** `-file` and `-system`; only `CRON_TZ` changes the schedule, as in cronie.
 2. **Quartz syntax** (4 h). `-dialect quartz`: `?`, `L` (last day, last weekday), `W` (nearest weekday), `#` (nth weekday of the month), an optional year field, and Quartz day-of-week numbering (1 = Sunday).
 3. **Dialect differences** (2 h). `-dialect robfig` for Go's robfig/cron and Kubernetes CronJob rules (OR day rule when one field is `*/n`, supported macros), with a table in the README of where dialects disagree.
 
