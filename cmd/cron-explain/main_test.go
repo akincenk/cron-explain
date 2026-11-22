@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +14,7 @@ var now = time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC)
 
 func runCLI(args ...string) (int, string, string) {
 	var out, errOut bytes.Buffer
-	code := run(args, &out, &errOut, now)
+	code := run(args, strings.NewReader(""), &out, &errOut, now)
 	return code, out.String(), errOut.String()
 }
 
@@ -101,5 +103,71 @@ func TestNeverRuns(t *testing.T) {
 	code, out, _ := runCLI("-tz", "UTC", "0 0 30 2 *")
 	if code != 0 || !strings.Contains(out, "none in the next 30 years") || !strings.Contains(out, "[never-runs]") {
 		t.Errorf("exit %d, output:\n%s", code, out)
+	}
+}
+
+func writeFile(t *testing.T, text string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "crontab")
+	if err := os.WriteFile(p, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestFileText(t *testing.T) {
+	p := writeFile(t, "# shop\n15 1 * * * /bin/rotate\nCRON_TZ=America/Toronto\n30 2 * * * /bin/backup\n61 * * * * /bin/bad\n")
+	code, out, _ := runCLI("-tz", "UTC", "-n", "1", "-from", "2026-11-20 12:00", "-file", p)
+	if code != 1 {
+		t.Errorf("exit %d, want 1 because line 5 is bad", code)
+	}
+	for _, want := range []string{
+		"Line 2: 15 1 * * *  /bin/rotate\nAt 01:15.\n\nNext runs (UTC):\n  2026-11-21 01:15:00 UTC (+00:00) Sat\n",
+		"Line 4: 30 2 * * *  /bin/backup\nAt 02:30.\n\nNext runs (America/Toronto):\n  2026-11-21 02:30:00 EST (-05:00) Sat\n",
+		"[dst-skip]",
+		"Line 5: 61 * * * * /bin/bad\nError: cron expression",
+		"\n3 job lines: 1 with warnings, 1 with errors.\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestFileJSONFromStdin(t *testing.T) {
+	var out, errOut bytes.Buffer
+	in := strings.NewReader("@reboot root /bin/start\nCRON_TZ=Mars/Base\n0 3 * * * backup /bin/dump\n")
+	code := run([]string{"-json", "-system", "-n", "1", "-file", "-"}, in, &out, &errOut, now)
+	if code != 1 {
+		t.Errorf("exit %d, want 1 for the unknown zone", code)
+	}
+	var got []struct {
+		Line                      int
+		User, Command, Expression string
+		Error                     string
+	}
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out.String())
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d entries\n%s", len(got), out.String())
+	}
+	if got[0].Line != 1 || got[0].User != "root" || got[0].Command != "/bin/start" || got[0].Error != "" || got[0].Expression != "@reboot" {
+		t.Errorf("first = %+v\n%s", got[0], out.String())
+	}
+	if got[1].Line != 3 || got[1].User != "backup" || !strings.Contains(got[1].Error, `unknown time zone "Mars/Base"`) || got[1].Expression != "" {
+		t.Errorf("second = %+v", got[1])
+	}
+}
+
+func TestFileUsageErrors(t *testing.T) {
+	for _, args := range [][]string{
+		{"-file", "x", "0 * * * *"},
+		{"-system", "0 * * * *"},
+		{"-file", filepath.Join(t.TempDir(), "missing")},
+	} {
+		if code, _, _ := runCLI(args...); code != 2 {
+			t.Errorf("%v: exit %d, want 2", args, code)
+		}
 	}
 }
